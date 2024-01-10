@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vigenere</title>
+    <style>
+       body {
+  font-family: Arial, sans-serif;
+  background-color: #f0f0f0;
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px;
+  text-align: center;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+textarea {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  resize: none;
+}
+
+button {
+  padding: 10px 20px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 5px;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
+#cles {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+#sortie {
+  margin-top: 10px;
+}
+
+/* Style spécifique pour les boutons "Test de kasiski" et "Indice de coincidence" */
+#kasiski,
+#indice {
+  background-color: #2196F3;
+}
+
+#kasiski:hover,
+#indice:hover {
+  background-color: #0b7dda;
+}
+
+    </style>
+</head>
+<body>
+    <h1>Cryptanalyse de Vigenère</h1>
+    <div> Entrez Le texte que vous souhaitez chiffré ici : </div><br>
+    <textarea id="clair" cols="20" rows="10" ></textarea>
+    <div> Version Nettoyer : </div><br>
+    <textarea id="nettoy" cols="40" rows="10" readonly></textarea>
+    <div> Entrez Le texte que vous souhaitez déchiffré ici : </div><br>
+    <textarea id="deco" cols="30" rows="10"></textarea><br>
+    <input id="cle" value="" size=10><button id="coder">Coder</button>
+    <input id="motcle" value="" size=10>
+    <button id="tester">Décoder</button>
+    <button id="kasiski">Test de kasiski</button>
+    <button id="indice">Indice de coincidence</button><br>
+    <div> Texte chiffré : </div><br>
+    <textarea id="code" cols="50" rows="6"></textarea>
+    <div> Texte déchiffré : </div><br>
+    <textarea id="decode" cols="50" rows="6"></textarea>
+    <div id="sortie"></div>
+    <script>
+        var $ =(id) => document.getElementById(id)
+      
+      $('clair').addEventListener('keyup', function () { nettoy.value = nettoyer(this.value) }, false)    
+      $('coder').addEventListener('click', function () { code.value = coder(nettoy.value, nettoyer(cle.value)) } , false)       
+      $('kasiski').addEventListener('click', function () { 
+        const encryptedText = deco.value;  // Récupère le texte chiffré
+        const nGrams = kasiskiTest(encryptedText, 3); // Applique le test de Kasiski
+
+         // Filtrer les séquences répétées qui se produisent au moins 2 fois
+        const filteredNGrams = nGrams.filter(nGramInfo => nGramInfo.count >= 2);
+
+  // Affiche les séquences répétées dans la div "sortie"
+  const outputDiv = $('sortie');
+  outputDiv.innerHTML = "<p>Séquences répétées (au moins 3 caractères) :</p>";
+  for (const nGramInfo of filteredNGrams) {
+    outputDiv.innerHTML += `<p>${nGramInfo.nGram}: ${nGramInfo.count} fois, Positions: ${nGramInfo.positions.join(', ')}</p>`;
+  
+// Si au moins une séquence répétée a été trouvée
+ 
+}if (filteredNGrams.length > 0) {
+    // Trie les séquences par nombre d'occurrences
+    filteredNGrams.sort((a, b) => b.count - a.count);
+
+    // Récupère les positions de la séquence la plus fréquente
+    const positions = filteredNGrams[0].positions;
+
+    // Calcul de la longueur probable de la clé en fonction du PGCD des différences entre les positions
+    const gcd = calculateGCD(positions);
+    if (gcd > 0) {
+      // Affiche la longueur probable de la clé
+      outputDiv.innerHTML += `<p>Longueur probable de la clé : ${gcd}</p>`;
+    } else {
+      outputDiv.innerHTML += "<p>Impossible de déterminer la longueur probable de la clé car le PGCD est nul.</p>";
+    }
+  } else {
+    outputDiv.innerHTML += "<p>Impossible de déterminer la longueur probable de la clé car il n'y a pas assez de séquences répétées.</p>";
+  } } , false) 
+      $('indice').addEventListener('click', function () {  
+        
+        const encryptedText = deco.value;  // Récupère le texte chiffré
+        const nGrams = kasiskiTest(encryptedText, 3); // Applique le test de Kasiski
+
+         // Filtrer les séquences répétées qui se produisent au moins 2 fois
+        const filteredNGrams = nGrams.filter(nGramInfo => nGramInfo.count >= 2);
+
+  // Affiche les séquences répétées dans la div "sortie"
+  const outputDiv = $('sortie');
+        
+        const keyLength = parseInt(prompt("Entrez la longueur probable de la clé :"));  // Spécifiez la longueur de la clé
+
+// Divisez le texte en groupes en fonction de la longueur de la clé
+const groups = new Array(keyLength);
+for (let i = 0; i < keyLength; i++) {
+  groups[i] = '';
+}
+
+for (let i = 0; i < encryptedText.length; i++) {
+  groups[i % keyLength] += encryptedText[i];
+}
+
+// Divisez le texte en groupes en fonction de la longueur de la clé
+const group = new Array(keyLength);
+for (let i = 0; i < keyLength; i++) {
+  group[i] = '';
+}
+for (let i = 0; i < encryptedText.length; i++) {
+  group[i % keyLength] += encryptedText[i];
+}
+
+for (let i = 0; i < keyLength; i++) {
+  const ic = calculateIC(groups[i]);
+  outputDiv.innerHTML += `<p>Groupe ${i + 1}: IC = ${ic.toFixed(3)}</p>`;
+} } , false) 
+      $('tester').addEventListener('click', function () {
+
+
+
+  // Trouver la clé exacte à partir de l'ICM
+  //const exactKey = findKeyFromICM(encryptedText, keyLength);
+  //outputDiv.innerHTML += `<p>Clé exacte : ${exactKey}</p>`;
+
+
+  decode.value = dechiffrer(deco.value, nettoyer(motcle.value));  // Appelle la fonction de déchiffrement et met à jour le textarea "code"
+}, false);
+      document.addEventListener('DOMContentLoaded', function () { nettoy.value = nettoyer(clair.value) }, false)
+      
+      const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      // Même code que pour César
+      var nettoyer = (txt) => {
+        var accents="àâëéèêïîôüûç"
+        var voyelles="aaeeeeiiouuc"
+        return [...txt.toLowerCase()].map(c => accents.includes(c) ? voyelles[accents.indexOf(c)] : c)
+        .join('').replace(/[^a-z]/g, '').toUpperCase()
+      }
+      // Par exemple cesar("D","A") donnera "E"
+      var cesar = (c, k) => ALPHA[(ALPHA.indexOf(k) + ALPHA.indexOf(c) + 26) % 26]
+      
+      // Inversion de la clé
+      var inv = (cle) => [...cle].map(c=> c=="Z" ? c : ALPHA[24-ALPHA.indexOf(c)])
+      
+      var coder = (txt, cle) => [...txt].map((c,k) => cesar(c, cle[k % cle.length])).join('')
+
+      var dechiffrer = (txt, cle) => {
+        let decryptedText = "";
+        for (let i = 0; i < txt.length; i++) {
+        if (txt[i] >= 'A' && txt[i] <= 'Z') {  // Vérifie si le caractère est une lettre majuscule
+        const shift = ALPHA.indexOf(cle[i % cle.length]);  // Trouve le décalage en fonction de la clé
+        const decryptedChar = ALPHA[(ALPHA.indexOf(txt[i]) - shift + 26) % 26];  // Déchiffre le caractère
+        decryptedText += decryptedChar;
+        }   else {
+        decryptedText += txt[i];  // Conserve les caractères qui ne sont pas des lettres majuscules
+    }
+  }
+  return decryptedText;
+};
+
+    // Fonction pour effectuer un test de Kasiski
+// Fonction pour effectuer un test de Kasiski
+var kasiskiTest = (txt, minLength) => {
+  const nGrams = {};  // Stocke les séquences de texte répétées
+  const positions = {}; // Stocke les positions de début des séquences répétées
+  txt = txt.toUpperCase();  // Convertit le texte en majuscules pour l'analyse
+
+  // Recherche de toutes les séquences de texte répétées d'au moins minLength caractères
+  for (let i = 0; i < txt.length - minLength + 1; i++) {
+    const nGram = txt.substr(i, minLength);
+    if (nGrams[nGram]) {
+      nGrams[nGram]++;
+      positions[nGram].push(i);
+    } else {
+      nGrams[nGram] = 1;
+      positions[nGram] = [i];
+    }
+  }
+
+  // Trie les séquences par nombre d'occurrences
+  const sortedNGrams = Object.entries(nGrams).sort((a, b) => b[1] - a[1]);
+
+  // Retourne les séquences répétées d'au moins minLength caractères avec leurs positions
+  return sortedNGrams.map(([nGram, count]) => ({
+    nGram,
+    count,
+    positions: positions[nGram],
+  }));
+};
+
+// Fonction pour calculer le PGCD (plus grand commun diviseur) de plusieurs nombres
+function calculateGCD(numbers) {
+  if (numbers.length < 2) {
+    return 0;  // Pas suffisamment de positions pour calculer un PGCD
+  }
+
+  let gcd = numbers[1] - numbers[0]; // Initialisation avec la première différence
+  for (let i = 2; i < numbers.length; i++) {
+    gcd = calculateGCDForTwo(gcd, numbers[i] - numbers[i - 1]);
+  }
+
+  return gcd;
+}
+
+// Fonction pour calculer le PGCD de deux nombres
+function calculateGCDForTwo(a, b) {
+  while (b !== 0) {
+    const temp = b;
+    b = a % b;
+    a = temp;
+  }
+  return a;
+}
+
+// Fonction pour calculer l'indice de coïncidence (IC) pour un groupe de texte
+function calculateIC(group) {
+  group = group.toUpperCase();  // Convertir la chaîne en majuscules
+  const textLength = group.length;
+  const frequencies = new Array(26).fill(0);  // Créer un tableau pour stocker les fréquences des lettres A-Z
+
+  for (const letter of group) {
+    if ('A' <= letter && letter <= 'Z') {
+      frequencies[letter.charCodeAt(0) - 'A'.charCodeAt(0)] += 1;
+    }
+  }
+
+  let ic = 0.0;
+
+  for (let i = 0; i < 26; i++) {
+    ic += (frequencies[i] * (frequencies[i] - 1)) / (textLength * (textLength - 1));
+  }
+
+  return ic;
+}
+
+// Fonction pour trouver la clé exacte à partir de l'ICM
+function findKeyFromICM(encryptedText, keyLength) {
+  const textGroups = new Array(keyLength); // Utilisez un nom de variable différent ici
+  for (let i = 0; i < keyLength; i++) {
+    textGroups[i] = '';
+  }
+
+  for (let i = 0; i < encryptedText.length; i++) {
+    textGroups[i % keyLength] += encryptedText[i];
+  }
+
+  const key = [];
+  for (let i = 0; i < keyLength; i++) {
+    const frequencies = new Array(26).fill(0);
+
+    // Calculer l'ICM pour la paire actuelle
+    let maxICM = 0;
+    let probableKeyChar = '';
+
+    for (let shift = 0; shift < 26; shift++) {
+      let shiftedGroup = '';
+      for (let j = 0; j < textGroups[i].length; j++) {
+        const char = textGroups[i][j];
+        const shiftedChar = cesar(char, ALPHA[shift]);
+        shiftedGroup += shiftedChar;
+      }
+
+      const ic = calculateIC(shiftedGroup);
+      if (ic > maxICM) {
+        maxICM = ic;
+        probableKeyChar = ALPHA[shift];
+      }
+    }
+
+    key.push(probableKeyChar);
+  }
+
+  return key.join('');
+}
+
+</script>
+</body>
+</html>
